@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Network Security Simulator</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+        h2 { margin-top: 20px; color: #58a6ff; }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover { background-color: #30363d; }
+        #btn-legit { border-color: #2ea043; color: #2ea043; }
+        #btn-malware { border-color: #f85149; color: #f85149; }
+        #btn-firewall { border-color: #a371f7; color: #a371f7; }
+        
+        canvas {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .log-container {
+            width: 800px;
+            height: 150px;
+            background-color: #010409;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            margin-top: 20px;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        .log-entry { margin-bottom: 5px; }
+        .log-legit { color: #2ea043; }
+        .log-warn { color: #d29922; }
+        .log-error { color: #f85149; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Network Security & Routing Simulator</h2>
+    
+    <div class="controls">
+        <button id="btn-legit">Send Legitimate Request</button>
+        <button id="btn-malware">Send Malware Payload</button>
+        <button id="btn-firewall">Toggle Firewall: ON</button>
+        <button id="btn-ddos">Simulate DDoS</button>
+    </div>
+
+    <canvas id="networkCanvas" width="800" height="400"></canvas>
+
+    <div class="log-container" id="logBox"></div>
+
+    <script>
+        const canvas = document.getElementById('networkCanvas');
+        const ctx = canvas.getContext('2d');
+        const logBox = document.getElementById('logBox');
+
+        // Network State
+        let firewallOn = true;
+        let packets = [];
+
+        // Node Definitions (x, y coordinates)
+        const nodes = {
+            user: { x: 100, y: 100, name: "User PC", color: "#2ea043" },
+            attacker: { x: 100, y: 300, name: "Attacker PC", color: "#f85149" },
+            firewall: { x: 350, y: 200, name: "AWS Firewall", color: "#a371f7" },
+            server: { x: 550, y: 200, name: "Web Server", color: "#58a6ff" },
+            db: { x: 700, y: 200, name: "Database", color: "#d29922" }
+        };
+
+        function addLog(msg, type) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.innerText = `[${time}] ${msg}`;
+            logBox.appendChild(entry);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        class Packet {
+            constructor(startX, startY, targetNode, type, path) {
+                this.x = startX;
+                this.y = startY;
+                this.target = targetNode;
+                this.type = type; // 'legit' or 'malware'
+                this.path = path; // Array of nodes to visit
+                this.pathIndex = 0;
+                this.speed = 4;
+                this.radius = 6;
+                this.active = true;
+            }
+
+            update() {
+                if (!this.active) return;
+                
+                const targetX = this.path[this.pathIndex].x;
+                const targetY = this.path[this.pathIndex].y;
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+
+                if (distance < this.speed) {
+                    this.x = targetX;
+                    this.y = targetY;
+                    
+                    // Hit Firewall Logic
+                    if (this.path[this.pathIndex] === nodes.firewall) {
+                        if (this.type === 'malware' && firewallOn) {
+                            addLog(`BLOCKED: Malicious payload dropped at Firewall (IP: 10.0.0.99)`, 'warn');
+                            this.active = false; // Destroy packet
+                            return;
+                        }
+                        if (this.type === 'malware' && !firewallOn) {
+                            addLog(`WARNING: Malware bypassed disabled firewall.`, 'error');
+                        }
+                    }
+
+                    // Hit Server Logic
+                    if (this.path[this.pathIndex] === nodes.server) {
+                        if (this.type === 'malware') {
+                            addLog(`CRITICAL ALERT: Web Server compromised by injected payload!`, 'error');
+                            nodes.server.color = "#f85149"; // Server turns red
+                            this.active = false;
+                            return;
+                        }
+                    }
+
+                    // Hit DB Logic
+                    if (this.path[this.pathIndex] === nodes.db) {
+                        addLog(`SUCCESS: HTTP GET request fulfilled by Database.`, 'legit');
+                        this.active = false;
+                        return;
+                    }
+
+                    // Move to next node in path
+                    this.pathIndex++;
+                } else {
+                    this.x += (dx / distance) * this.speed;
+                    this.y += (dy / distance) * this.speed;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'legit' ? '#2ea043' : '#f85149';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawLines() {
+            ctx.strokeStyle = "#30363d";
+            ctx.lineWidth = 2;
+            
+            // User to FW
+            ctx.beginPath(); ctx.moveTo(nodes.user.x, nodes.user.y); ctx.lineTo(nodes.firewall.x, nodes.firewall.y); ctx.stroke();
+            // Attacker to FW
+            ctx.beginPath(); ctx.moveTo(nodes.attacker.x, nodes.attacker.y); ctx.lineTo(nodes.firewall.x, nodes.firewall.y); ctx.stroke();
+            // FW to Server
+            ctx.beginPath(); ctx.moveTo(nodes.firewall.x, nodes.firewall.y); ctx.lineTo(nodes.server.x, nodes.server.y); ctx.stroke();
+            // Server to DB
+            ctx.beginPath(); ctx.moveTo(nodes.server.x, nodes.server.y); ctx.lineTo(nodes.db.x, nodes.db.y); ctx.stroke();
+        }
+
+        function drawNodes() {
+            for (const key in nodes) {
+                const n = nodes[key];
+                
+                // Draw Node Circle
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, 25, 0, Math.PI * 2);
+                ctx.fillStyle = '#21262d';
+                
+                // Special Firewall coloring
+                if (key === 'firewall') {
+                    ctx.strokeStyle = firewallOn ? n.color : '#484f58';
+                    ctx.setLineDash(firewallOn ? [] : [5, 5]); // Dashed if off
+                } else {
+                    ctx.strokeStyle = n.color;
+                    ctx.setLineDash([]);
+                }
+                
+                ctx.lineWidth = 4;
+                ctx.fill();
+                ctx.stroke();
+                
+                // Draw Text
+                ctx.fillStyle = '#c9d1d9';
+                ctx.font = '14px Consolas';
+                ctx.textAlign = 'center';
+                ctx.fillText(n.name, n.x, n.y + 45);
+            }
+            ctx.setLineDash([]); // reset
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawLines();
+            drawNodes();
+            
+            packets.forEach(p => { p.update(); p.draw(); });
+            // Clean up inactive packets to save memory
+            packets = packets.filter(p => p.active);
+            
+            requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('btn-legit').addEventListener('click', () => {
+            addLog(`User initiated HTTP GET request to Port 80.`, 'legit');
+            packets.push(new Packet(nodes.user.x, nodes.user.y, nodes.firewall, 'legit', [nodes.firewall, nodes.server, nodes.db]));
+        });
+
+        document.getElementById('btn-malware').addEventListener('click', () => {
+            addLog(`Attacker deployed unauthorized payload to Port 22.`, 'warn');
+            packets.push(new Packet(nodes.attacker.x, nodes.attacker.y, nodes.firewall, 'malware', [nodes.firewall, nodes.server]));
+        });
+
+        document.getElementById('btn-ddos').addEventListener('click', () => {
+            addLog(`WARNING: High-volume DDoS traffic detected from Attacker IP!`, 'error');
+            let count = 0;
+            const interval = setInterval(() => {
+                packets.push(new Packet(nodes.attacker.x, nodes.attacker.y, nodes.firewall, 'malware', [nodes.firewall, nodes.server]));
+                count++;
+                if (count > 20) clearInterval(interval);
+            }, 100);
+        });
+
+        document.getElementById('btn-firewall').addEventListener('click', (e) => {
+            firewallOn = !firewallOn;
+            e.target.innerText = `Toggle Firewall: ${firewallOn ? 'ON' : 'OFF'}`;
+            e.target.style.color = firewallOn ? '#a371f7' : '#8b949e';
+            e.target.style.borderColor = firewallOn ? '#a371f7' : '#8b949e';
+            addLog(`System Administrator turned Firewall ${firewallOn ? 'ON' : 'OFF'}.`, firewallOn ? 'legit' : 'warn');
+            
+            // Reset server color if firewall turns back on
+            if (firewallOn) nodes.server.color = "#58a6ff"; 
+        });
+
+        // Start animation loop
+        animate();
+        addLog("Simulation Initialized. Awaiting network traffic...", "legit");
+
+    </script>
+</body>
+</html>
