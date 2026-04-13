@@ -160,7 +160,7 @@ npx serve .
 
 ```
 network-sim-101/
-├── demo.html       # ← The entire application. This is all you need.
+├── index.html       # ← The entire application. This is all you need.
 └── README.md       # ← You are here
 ```
 
