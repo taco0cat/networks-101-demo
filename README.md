@@ -26,7 +26,7 @@ The visual feedback loop makes abstract concepts like firewall rules, packet rou
 
 ## 🎓 Workshop Context
 
-This tool was **designed for and deployed in a live Networks 101 classroom session**. The goal was simple: make students *see* the network, not just hear about it.
+This tool was **designed for and deployed in a live Networks 101 classroom session**. The goal was simple: make students *see* the network, not just hear about it. (Used for IoT club workshop presentation purposes)
 
 - 🏫 Demonstrated **live** to a class, with the instructor triggering scenarios in real time during the lecture
 - 🖥️ **Embedded directly into the workshop slide deck** via PowerPoint and Canva (see [Deployment](#-deployment--embedding) below) — no browser switching mid-presentation
